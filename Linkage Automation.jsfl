@@ -35,7 +35,6 @@ function findFolerItems(folderName, folderPath) {
 			
 			if(item.linkageClassName == undefined){
 				item.linkageExportForAS = true;
-				// item.linkageImportForRS = false;
 			}
 			
 			item.linkageClassName = folderName + "_" + itemIndex++;
