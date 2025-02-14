@@ -1,4 +1,4 @@
-﻿var doc = fl.getDocumentDOM();
+var doc = fl.getDocumentDOM();
 
 if (!doc) {
 	fl.trace("문서를 먼저 열어주세요.");
@@ -32,7 +32,12 @@ function findFolerItems(folderName, folderPath) {
 		if (item.name && item.name.indexOf(folderPath) === 0 && item.itemType != "folder") {
 			fl.trace("아이템 이름: " + item.name);
 			fl.trace("아이템 Linkage: " + item.linkageClassName);
-
+			
+			if(item.linkageClassName == undefined){
+				item.linkageExportForAS = true;
+				// item.linkageImportForRS = false;
+			}
+			
 			item.linkageClassName = folderName + "_" + itemIndex++;
 		}
 	}
