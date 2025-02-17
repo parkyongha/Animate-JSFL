@@ -4,55 +4,139 @@ if (!doc) {
 	fl.trace("문서를 먼저 열어주세요.");
 }
 
-var fileName = getFileSegment(doc.name);
+main();
 
-fl.trace("이건가" + fileName);
+function main() {
+	var fileName = getFileSegment(doc.name);
 
-// 현재 퍼블리시 프로필 이름 가져오기
-var profileName = doc.currentPublishProfile;
-fl.trace("현재 퍼블리시 프로필: " + profileName);
+	deleteOldFilesAndFolder(fileName, GetProjectPath() + "/bin/");
 
-// 퍼블리시 프로필 XML 문자열 추출
-var profileXML = doc.exportPublishProfileString(profileName);
-//fl.trace("원본 퍼블리시 프로필 XML:\n" + profileXML);
+	changePublishSetting(fileName);
+}
 
-// filename 변경: bin/BW_5775307.js -> bin/fileName.js
-var modifiedProfileXML =
-	profileXML.replace(/(<Property name="filename">bin\/)[^.]+(\.js<\/Property>)/, "$1" + fileName + "$2")
-// soundsPath 변경: BW_5775307/sounds/ -> fileName/sounds/
-.replace(/(<Property name="soundsPath">)[^\/]+(\/sounds\/<\/Property>)/, "$1" + fileName + "$2")
-// imagesPath 변경: BW_5775307/images/ -> fileName/images/
-.replace(/(<Property name="imagesPath">)[^\/]+(\/images\/<\/Property>)/, "$1" + fileName + "$2")
-// libraryPath 변경: BW_5775307/libs/ -> fileName/libs/
-.replace(/(<Property name="libraryPath">)[^\/]+(\/libs\/<\/Property>)/, "$1" + fileName + "$2");
+function deleteOldFilesAndFolder(fileName, filePath) {
+	// 삭제할 항목의 접두어(prefix)를 지정합니다.
+	// 예: "BW_XXXXXX" 일 때 "BW" 로 시작하는 파일/폴더 삭제
+	var prefix = fileName.split("_")[0];
 
-// 예)
-// 변경 전
-// <Property name="filename">bin/BW_5775307.js</Property>
-// <Property name="soundsPath">BW_5775307/sounds/</Property>
-// <Property name="imagesPath">BW_5775307/images/</Property>
-// <Property name="libraryPath">BW_5775307/libs/</Property>
+	var targetFolder = filePath;
+	
+	fl.trace("prefix : " + fileName);
 
-// 변경 후
-// <Property name="filename">bin/fileName.js</Property>
-// <Property name="soundsPath">fileName/sounds/</Property>
-// <Property name="imagesPath">fileName/images/</Property>
-// <Property name="libraryPath">fileName/libs/</Property>
+	// targetFolder 내의 모든 항목(파일 및 폴더) 리스트를 가져옵니다.
+	var items = FLfile.listFolder(targetFolder);
 
-// 수정된 XML 문자열을 다시 적용
-doc.importPublishProfileString(modifiedProfileXML);
+	if (items) {
+		for (var i = 0; i < items.length; i++) {
+			var itemName = items[i];
+			
+			fl.trace("item Names : " + itemName);
+			// 항목 이름이 prefix로 시작하는지 확인합니다.
+			if (itemName.indexOf(prefix) === 0) {
+				// 전체 경로를 구성합니다.
+				var fullPath = targetFolder + "/" + itemName;
 
-// 변경 사항 확인 (필요 시, 현재 프로필을 재설정할 수도 있음)
-doc.currentPublishProfile = profileName;
+				// 폴더인지 파일인지 판별하기 위해
+				// 해당 경로에서 폴더 목록을 가져와봅니다.
+				var subItems = FLfile.listFolder(fullPath, "directories");
+				if (subItems) {
+					// subItems가 존재하면 폴더로 간주하고 재귀적으로 삭제합니다.
+					FLfile.remove(fullPath);
+					fl.trace("폴더 삭제: " + fullPath);
+				} else {
+					// 그렇지 않으면 파일로 간주하고 삭제합니다.
+					FLfile.remove(fullPath);
+					fl.trace("파일 삭제: " + fullPath);
+				}
+			}
+		}
+	} else {
+		fl.trace("지정한 폴더 내에 항목이 없습니다.");
+	}
+}
 
-fl.trace("퍼블리시 설정이 업데이트되었습니다.");
+function changePublishSetting(fileName) {
+	// 현재 퍼블리시 프로필 이름 가져오기
+	var profileName = doc.currentPublishProfile;
+	fl.trace("현재 퍼블리시 프로필: " + profileName);
+
+	// 퍼블리시 프로필 XML 문자열 추출
+	var profileXML = doc.exportPublishProfileString(profileName);
+	//fl.trace("원본 퍼블리시 프로필 XML:\n" + profileXML);
+
+	// filename 변경: bin/BW_5775307.js -> bin/fileName.js
+	var modifiedProfileXML =
+		profileXML.replace(/(<Property name="filename">bin\/)[^.]+(\.js<\/Property>)/, "$1" + fileName + "$2")
+	// soundsPath 변경: BW_5775307/sounds/ -> fileName/sounds/
+	.replace(/(<Property name="soundsPath">)[^\/]+(\/sounds\/<\/Property>)/, "$1" + fileName + "$2")
+	// imagesPath 변경: BW_5775307/images/ -> fileName/images/
+	.replace(/(<Property name="imagesPath">)[^\/]+(\/images\/<\/Property>)/, "$1" + fileName + "$2")
+	// libraryPath 변경: BW_5775307/libs/ -> fileName/libs/
+	.replace(/(<Property name="libraryPath">)[^\/]+(\/libs\/<\/Property>)/, "$1" + fileName + "$2");
+
+
+	// 수정된 XML 문자열을 다시 적용
+	doc.importPublishProfileString(modifiedProfileXML);
+
+	// 변경 사항 확인 (필요 시, 현재 프로필을 재설정할 수도 있음)
+	doc.currentPublishProfile = profileName;
+
+	fl.trace("퍼블리시 설정이 업데이트되었습니다.");
+}
+
+// 현재 문서의 전체 경로에서 프로젝트 경로(예: 마지막 두 요소 제거)를 반환하는 함수
+function GetProjectPath() {
+	var fullPath = doc.path;
+	fl.trace("전체 파일 경로: " + fullPath);
+
+	var parts = fullPath.split("\\");
+
+	var remainingParts = null;
+
+	fullPath = fullPath.toLowerCase();
+
+	if (fullPath.indexOf(".xfl") !== -1) {
+		fl.trace("현재 열린 파일은 XFL 형식입니다.");
+		remainingParts = parts.slice(0, parts.length - 2);
+
+	} else if (fullPath.indexOf(".fla") !== -1) {
+		fl.trace("현재 열린 파일은 FLA 형식입니다.");
+		remainingParts = parts.slice(0, parts.length - 1);
+	}
+
+	// 예: 마지막 두 요소(파일명 등)를 제거
+	var remainingPath = remainingParts.join("\\");
+	remainingPath = convertWindowsPathToURI(remainingPath);
+
+	fl.trace("프로젝트 경로: " + remainingPath);
+
+	return remainingPath;
+}
+
+// Windows 경로를 파일 URL 형식으로 변환하는 함수
+function convertWindowsPathToURI(winPath) {
+	var uri = winPath.replace(/\\/g, "/");
+	if (uri.charAt(1) === ":") {
+		uri = "file:///" + uri.charAt(0) + "|" + uri.substring(2);
+	} else {
+		uri = "file:///" + uri;
+	}
+	return uri;
+}
 
 function getFileSegment(fileName) {
 
-	// 확장자 제거 (대소문자 구분 없이)
-	var baseName = fileName.replace(/\.xfl$/i, "");
+	var result = null;
+
+	if (fileName.indexOf(".xfl") !== -1) {
+		result = fileName.replace(/\.xfl$/i, "");
+
+	} else if (fileName.indexOf(".fla") !== -1) {
+		result = fileName.replace(/\.fla$/i, "");
+	}
+
 	// 밑줄("_")로 분리
-	var parts = baseName.split("_");
+	var parts = result.split("_");
 
 	// 마지막 두 요소가 존재하면 추출
 	if (parts.length >= 2) {
@@ -63,4 +147,5 @@ function getFileSegment(fileName) {
 		return null;
 	}
 
+	return result;
 }
