@@ -9,9 +9,13 @@ main();
 function main() {
 	var fileName = getFileSegment(doc.name);
 
-	deleteOldFilesAndFolder(fileName, GetProjectPath() + "/bin/");
+	var projectPath = GetProjectPath();
+
+	deleteOldFilesAndFolder(fileName, projectPath + "/bin/");
 
 	changePublishSetting(fileName);
+
+	ImportPublishTemplate(projectPath);
 }
 
 function deleteOldFilesAndFolder(fileName, filePath) {
@@ -20,7 +24,7 @@ function deleteOldFilesAndFolder(fileName, filePath) {
 	var prefix = fileName.split("_")[0];
 
 	var targetFolder = filePath;
-	
+
 	fl.trace("prefix : " + fileName);
 
 	// targetFolder 내의 모든 항목(파일 및 폴더) 리스트를 가져옵니다.
@@ -29,10 +33,10 @@ function deleteOldFilesAndFolder(fileName, filePath) {
 	if (items) {
 		for (var i = 0; i < items.length; i++) {
 			var itemName = items[i];
-			
+
 			fl.trace("item Names : " + itemName);
 			// 항목 이름이 prefix로 시작하는지 확인합니다.
-			if (itemName.indexOf(prefix) === 0) {
+			if (itemName.indexOf(prefix) === 0 && itemName != fileName) {
 				// 전체 경로를 구성합니다.
 				var fullPath = targetFolder + "/" + itemName;
 
@@ -74,14 +78,30 @@ function changePublishSetting(fileName) {
 	// libraryPath 변경: BW_5775307/libs/ -> fileName/libs/
 	.replace(/(<Property name="libraryPath">)[^\/]+(\/libs\/<\/Property>)/, "$1" + fileName + "$2");
 
-
 	// 수정된 XML 문자열을 다시 적용
 	doc.importPublishProfileString(modifiedProfileXML);
 
-	// 변경 사항 확인 (필요 시, 현재 프로필을 재설정할 수도 있음)
-	doc.currentPublishProfile = profileName;
-
 	fl.trace("퍼블리시 설정이 업데이트되었습니다.");
+}
+
+function ImportPublishTemplate(projectPath) {
+
+	var profileXML = doc.exportPublishProfileString(doc.currentPublishProfile);
+
+	var xmlData = new XML(profileXML);
+
+	for each(var property in xmlData.children().Property) {
+
+		// fl.trace("xml property : " + property.@name);
+
+		if (property.@name == "templateTitle") {
+			var htmlPath = new String(property).replace(" (Custom)", ".html");
+			
+			fl.trace("htmlPath : " + htmlPath);
+			
+			doc.importCanvasPublishTemplate(projectPath + "/" + htmlPath);
+		}
+	}
 }
 
 // 현재 문서의 전체 경로에서 프로젝트 경로(예: 마지막 두 요소 제거)를 반환하는 함수
